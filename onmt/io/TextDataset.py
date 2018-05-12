@@ -466,6 +466,50 @@ class Vocab_new(torchtext.vocab.Vocab):
             self.load_vectors(vectors, unk_init=unk_init, cache=vectors_cache)
         else:
             assert unk_init is None and vectors_cache is None
+    def __eq__(self, other):
+        if self.freqs != other.freqs:
+            return False
+        if self.stoi != other.stoi:
+            return False
+        if self.itos_new != other.itos_new:
+            return False
+        if self.vectors != other.vectors:
+            return False
+        return True
+
+    def __len__(self):
+        return len(self.itos_new)
+
+    def extend(self, v, sort=False):
+        words = sorted(v.itos) if sort else v.itos
+        for w in words:
+            if w not in self.stoi:
+                self.itos_new.append(w)
+                self.stoi[w] = len(self.itos_new) - 1
+
+    def set_vectors(self, stoi, vectors, dim, unk_init=torch.Tensor.zero_):
+        """
+        Set the vectors for the Vocab instance from a collection of Tensors.
+
+        Arguments:
+            stoi: A dictionary of string to the index of the associated vector
+                in the `vectors` input argument.
+            vectors: An indexed iterable (or other structure supporting __getitem__) that
+                given an input index, returns a FloatTensor representing the vector
+                for the token associated with the index. For example,
+                vector[stoi["string"]] should return the vector for "string".
+            dim: The dimensionality of the vectors.
+            unk_init (callback): by default, initialize out-of-vocabulary word vectors
+                to zero vectors; can be any function that takes in a Tensor and
+                returns a Tensor of the same size. Default: torch.Tensor.zero_
+        """
+        self.vectors = torch.Tensor(len(self), dim)
+        for i, token in enumerate(self.itos_new):
+            wv_index = stoi.get(token, None)
+            if wv_index is not None:
+                self.vectors[i] = vectors[wv_index]
+            else:
+                self.vectors[i] = unk_init(self.vectors[i])
 
 class Field(torchtext.data.Field):
     vocab_cls = Vocab_new
